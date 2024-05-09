@@ -12,16 +12,14 @@
 
 const std::size_t tcount = 4 + 1;
 
-void abuser(abstract_queue *q, std::barrier<std::function<void()>> &barrier) {
+void benchmark(abstract_queue *q, std::barrier<std::function<void()>> &barrier) {
     barrier.arrive_and_wait();
     for (std::size_t i = 0; i < 10; ++i) {
         q->enqueue(0);
         q->enqueue(1);
         q->dequeue();
         q->enqueue(2);
-        while (!q->isEmpty())
-            q->dequeue();
-        for (std::size_t j = 0; j < 10000; ++j)
+        for (std::size_t j = 0; j < 1000; ++j)
             q->enqueue(j);
         while (!q->isEmpty())
             q->dequeue();
@@ -56,7 +54,7 @@ int main() {
     std::barrier<std::function<void()>> barrier(tcount, manager);
 
     for (std::size_t i = 0; i < tcount - 1; ++i) {
-        threads.emplace_back(abuser, &lf, std::ref(barrier));
+        threads.emplace_back(benchmark, &lf, std::ref(barrier));
     }
     barrier.arrive_and_wait();
 
@@ -67,7 +65,7 @@ int main() {
 
 
     for (std::size_t i = 0; i < tcount - 1; ++i)
-        threads.emplace_back(abuser, &px, std::ref(barrier));
+        threads.emplace_back(benchmark, &px, std::ref(barrier));
     barrier.arrive_and_wait();
 
     barrier.arrive_and_wait();
@@ -76,5 +74,6 @@ int main() {
     std::chrono::milliseconds px_time = t;
 
     std::cout << (lf_time * 100) / px_time << std::endl;
+
     return 0;
 }
