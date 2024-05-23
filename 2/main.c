@@ -1,4 +1,3 @@
-#include <cstdint>
 #include <stdio.h>
 #include <mpi/mpi.h>
 #include <stdint.h>
@@ -6,9 +5,9 @@
 #include <stdlib.h>
 
 int main (int argc, char *argv[]) {
-    printf("536388\n");
     int npes, myrank;
-    char out = 0;
+    int in = 1;
+    int roll = 1;
 
     MPI_Init (&argc, &argv);
 
@@ -17,39 +16,40 @@ int main (int argc, char *argv[]) {
 
     char *buf = calloc(npes, 1);
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+    if (myrank == 0)
+        printf("536388\n");
 
     // pre determinizmus
-    srand(myrank);
+    //srand(myrank);
 
     // pre nahodnost
-    // srand(time(NULL));
+    srand(myrank * time(NULL));
 
     MPI_Barrier(MPI_COMM_WORLD);
 
-    while (onc > 1) {
+    while (onc != 1) {
+        if (in)
+            roll = rand() % 2;
         onc = npes;
-        if (!out)
-            out = rand() % 2;
-        MPI_Allgather(&out, 1, MPI_CHAR, buf, 1, MPI_CHAR, MPI_COMM_WORLD);
-        for (int i = 0; i < npes; ++i) {
-            if (buf[i])
-                onc--;
-        }
+        MPI_Allreduce(&roll, &onc, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+
+        in = in && (roll || !onc);
         MPI_Barrier(MPI_COMM_WORLD);
     }
     int overlord = 0;
     MPI_Status st;
-    if (myrank != 0 || out) {
-        if (!out) {
+    if (myrank != 0 || !in) {
+        if (in) {
             MPI_Send(&myrank, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
         } else if (myrank == 0) {
             MPI_Recv(&overlord, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &st);
         }
     }
-    MPI_Scatter(&overlord, 1, MPI_INT, &overlord, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Bcast(&overlord, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-    if (overlord != myrank)
-        printf("Sloužím ti, můj vládče, slunce naše jasné. %d\n", overlord);
+    printf("Sloužím ti, můj vládče, slunce naše jasné. %d\n", overlord);
 
     MPI_Finalize();
 
